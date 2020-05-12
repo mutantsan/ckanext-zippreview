@@ -4,6 +4,7 @@ import os
 import zipfile
 from ckan.lib import uploader, formatters
 import requests, cStringIO
+from urlparse import urlparse
 from collections import OrderedDict
 import urllib2
 import struct
@@ -71,9 +72,15 @@ def zip_list(rsc):
             # Sometimes values that can't be converted to ints can sneak
             # into the db. In this case, just leave them as they are.
             pass
-        return value
+        if value:
+            return value
+        else:
+            upload = uploader.get_resource_uploader(rsc)
+            url = urlparse(rsc['url'])
+            filename = os.path.basename(url.path)
+            URL = upload.get_url_from_filename(rsc['id'], filename, '')
+            return getZipListFromURL(URL)
     else:
-
         return getZipListFromURL(rsc.get('url'))
     return None
 
