@@ -22,15 +22,17 @@
                     {% if not tree %}
                     Sorry, an error occurred and we are unable to display the files inside this archive.
                     {% else %}
-                   <div class="module-content box" style="   -webkit-column-count: 2;
-      -moz-column-count: 2;
-           column-count: 2;
+                   <div class="module-content box" style="
+                            -webkit-column-count: 2;
+                            -moz-column-count: 2;
+                                column-count: 2;
 
-   -webkit-column-gap: 20px;
-      -moz-column-gap: 20px;
-           column-gap: 20px;">
+                            -webkit-column-gap: 0px;
+                                -moz-column-gap: 0px;
+                                    column-gap: 0px;
+                            padding-left: 15px;">
 
-                        <ul class="ziptree" style="list-style: none;">
+                        <ul class="ziptree" style="list-style: none; padding-left: 15px;">
                             {%- for item in tree recursive %}
                             <li style="list-style: none;    word-break: break-all;-ms-word-break:break-all;"><i class="fa icon fa-{{ item['icon'] }}"></i>  {{ item["title"] }}
                                 {% if "file_size" in item %}
