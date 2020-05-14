@@ -1,16 +1,18 @@
 {% extends 'dataviewer/base.html' %}
 {%- block styles %}
 {% resource g.main_css[6:] %}
+{% resource 'zippreview/styles/iframe-style.css' %}
 {% endblock %}
 {%- block scripts %}
 {% resource 'base/main' %}
 {% resource 'base/ckan' %}
+{% resource 'zippreview/scripts/zip.js' %}
 {% if g.tracking_enabled %}
 {% resource 'base/tracking.js' %}
 {% endif %}
 {% endblock -%}
-{% block page %}
 
+{% block page %}
 <div class="homepage layout-3">
     <a name="main_content" id="main_content" tabindex="-1"></a>
     <div role="main">
