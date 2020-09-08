@@ -1,15 +1,12 @@
 {% extends 'dataviewer/base.html' %}
 {%- block styles %}
-{% resource g.main_css[6:] %}
-{% resource 'zippreview/styles/iframe-style.css' %}
+    {% asset 'ckanext-zippreview/zip_css' %}
 {% endblock %}
 {%- block scripts %}
-{% resource 'base/main' %}
-{% resource 'base/ckan' %}
-{% resource 'zippreview/scripts/zip.js' %}
-{% if g.tracking_enabled %}
-{% resource 'base/tracking.js' %}
-{% endif %}
+    {% asset 'ckanext-zippreview/main_js' %}
+    {% if g.tracking_enabled %}
+        {% asset 'ckanext-zippreview/tracking_js' %}
+    {% endif %}
 {% endblock -%}
 
 {% block page %}

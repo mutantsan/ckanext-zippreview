@@ -1,0 +1,20 @@
+main_js:
+  filters: rjsmin
+  output: ckanext-zippreview/%(version)s_main.js
+  extra:
+    preload:
+      - base/ckan
+  contents:
+    - main.js
+
+tracking_js:
+  filters: rjsmin
+  output: ckanext-zippreview/%(version)s_tracking.js
+  contents:
+    - tracking.js
+
+zip_css:
+  output: ckanext-zippreview/%(version)s_zip.css
+  contents:
+    - css/main.css
+    - css/iframe-style.css

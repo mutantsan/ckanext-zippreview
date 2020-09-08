@@ -3,26 +3,25 @@ import ckan.plugins.toolkit as toolkit
 import os
 import zipfile
 from ckan.lib import uploader, formatters
-import requests, cStringIO
-from urlparse import urlparse
+import requests
+from io import BytesIO
+from urllib import request, parse as urlparse
 from collections import OrderedDict
-import urllib2
 import struct
 import sys
 import re
 
 def getZipListFromURL(url):
 
-
     def getList(start):
-        fp = cStringIO.StringIO(requests.get(url, headers={'Range': 'bytes={}-{}'.format(start,end)}).content)
+        fp = BytesIO(requests.get(url, headers={'Range': 'bytes={}-{}'.format(start,end)}).content)
         zf = zipfile.ZipFile(fp)
         return zf.filelist
 
     def getListAdvanced(url):
         # https://superuser.com/questions/981301/is-there-a-way-to-download-parts-of-the-content-of-a-zip-file
         def open_remote_zip(url, offset=0):
-            return urllib2.urlopen(urllib2.Request(url, headers={'Range': 'bytes={}-'.format(offset)}))
+            return request.urlopen(request(url, headers={'Range': 'bytes={}-'.format(offset)}))
 
         offset = 0
         fp = open_remote_zip(url)
@@ -54,11 +53,11 @@ def getZipListFromURL(url):
         if 'content-range' in head.headers:
             end = int(head.headers['content-range'].split("/")[1])
         return getList(end - 65536)
-    except Exception, e:
+    except Exception as e:
         pass
     try:
         return getListAdvanced(url)
-    except Exception, e:
+    except Exception as e:
         return None
 
 def zip_list(rsc):
@@ -68,7 +67,7 @@ def zip_list(rsc):
         try:
             zf = zipfile.ZipFile(upload.get_path(rsc['id']),'r')
             value = zf.filelist
-        except Exception, e:
+        except Exception as e:
             # Sometimes values that can't be converted to ints can sneak
             # into the db. In this case, just leave them as they are.
             pass
@@ -132,7 +131,7 @@ class ZipPreviewPlugin (plugins.SingletonPlugin):
     def update_config(self, config_):
         toolkit.add_template_directory(config_, 'templates')
         toolkit.add_public_directory(config_, 'public')
-        toolkit.add_resource('fanstatic', 'zippreview')
+        toolkit.add_resource('theme/public', 'ckanext-zippreview')
 
     def get_helpers(self):
         return {'zip_tree': zip_tree}
