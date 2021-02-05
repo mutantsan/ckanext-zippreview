@@ -1,154 +1,39 @@
-import ckan.plugins as plugins
-import ckan.plugins.toolkit as toolkit
-import os
-import zipfile
-from ckan.lib import uploader, formatters
-import requests
-from io import BytesIO
-from urllib import request, parse
-from collections import OrderedDict
-import struct
-import sys
-import re
+import ckan.plugins as p
+import ckan.plugins.toolkit as tk
 
-def getZipListFromURL(url):
-
-    def getList(start):
-        fp = BytesIO(requests.get(url, headers={'Range': 'bytes={}-{}'.format(start,end)}).content)
-        zf = zipfile.ZipFile(fp)
-        return zf.filelist
-
-    def getListAdvanced(url):
-        # https://superuser.com/questions/981301/is-there-a-way-to-download-parts-of-the-content-of-a-zip-file
-        def open_remote_zip(url, offset=0):
-            return request.urlopen(request(url, headers={'Range': 'bytes={}-'.format(offset)}))
-
-        offset = 0
-        fp = open_remote_zip(url)
-        header = fp.read(30)
-        list = []
-        while header[:4] == 'PK\x03\x04':
-            compressed_len, uncompressed_len = struct.unpack('<II', header[18:26])
-            filename_len, extra_len = struct.unpack('<HH', header[26:30])
-            header_len = 30 + filename_len + extra_len
-            total_len = header_len + compressed_len
-            filename = fp.read(filename_len)
-            #print('{}\n offset: {}\n length: {}\n  header: {}\n  payload: {}\n uncompressed length: {}'.format(filename, offset, total_len, header_len, compressed_len, uncompressed_len))
-            zi = zipfile.ZipInfo(filename)
-            zi.file_size = uncompressed_len
-            list.append(zi)
-            fp.close()
-
-            offset += total_len
-            fp = open_remote_zip(url, offset)
-            header = fp.read(30)
-
-        fp.close()
-        return list
-    try :
-        head = requests.head(url)
-        if 'content-length' in head.headers:
-            end = int(head.headers['content-length'])
-
-        if 'content-range' in head.headers:
-            end = int(head.headers['content-range'].split("/")[1])
-        return getList(end - 65536)
-    except Exception as e:
-        pass
-    try:
-        return getListAdvanced(url)
-    except Exception as e:
-        return None
-
-def zip_list(rsc):
-    if rsc.get('url_type') == 'upload':
-        upload = uploader.ResourceUpload(rsc)
-        value = None
-        try:
-            zf = zipfile.ZipFile(upload.get_path(rsc['id']),'r')
-            value = zf.filelist
-        except Exception:
-            # Sometimes values that can't be converted to ints can sneak
-            # into the db. In this case, just leave them as they are.
-            pass
-        if value:
-            return value
-        else:
-            upload = uploader.get_resource_uploader(rsc)
-            url = parse.urlparse(rsc['url'])
-            filename = os.path.basename(url.path)
-            URL = upload.get_url_from_filename(rsc['id'], filename, '')
-            return getZipListFromURL(URL)
-    else:
-        return getZipListFromURL(rsc.get('url'))
-    return None
+import ckanext.zippreview.utils as utils
+from ckanext.zippreview.helpers import get_helpers
 
 
-def zip_tree(rsc):
-    list = zip_list(rsc)
-
-    def get_icon(item):
-        extension = item.split('.')[-1].lower()
-        if extension in ['xml', 'txt', 'json']:
-            return "file-text"
-        if extension in ['csv', 'xls']:
-            return "bar-chart-o"
-        if extension in ['shp', 'geojson', 'kml', 'kmz']:
-            return "globe"
-        return "file"
-
-    if not list:
-        return None
-
-    tree = OrderedDict()
-    for compressed_file in list:
-        if "/" not in compressed_file.filename:
-            tree[compressed_file.filename] = {"title": compressed_file.filename,
-                                              "file_size": (formatters.localised_filesize(compressed_file.file_size)),
-                                              "children": [],
-                                              "icon": get_icon(compressed_file.filename)}
-        else:
-            parts = compressed_file.filename.split("/")
-            if parts[-1] != "":
-                child = {"title": re.sub(r'[^\x00-\x7f]',r'', parts.pop()),
-                         "file_size": (formatters.localised_filesize(compressed_file.file_size)),
-                         "children": [], "icon": get_icon(re.sub(r'[^\x00-\x7f]',r'',compressed_file.filename))}
-                parent = '/'.join(parts)
-                if parent not in tree:
-                    tree[parent] = {"title": parent, "children": [], "icon": 'folder-open'}
-                tree[parent]['children'].append(child)
-
-    return tree.values()
-
-
-class ZipPreviewPlugin (plugins.SingletonPlugin):
-    plugins.implements(plugins.IConfigurer)
-    plugins.implements(plugins.IResourceView, inherit=True)
-    plugins.implements(plugins.ITemplateHelpers, inherit=False)
+class ZipPreviewPlugin (p.SingletonPlugin):
+    p.implements(p.IConfigurer)
+    p.implements(p.IResourceView, inherit=True)
+    p.implements(p.ITemplateHelpers, inherit=False)
 
     # IConfigurer
 
     def update_config(self, config_):
-        toolkit.add_template_directory(config_, 'templates')
-        toolkit.add_public_directory(config_, 'public')
-        toolkit.add_resource('theme/public', 'ckanext-zippreview')
+        tk.add_template_directory(config_, 'templates')
+        tk.add_public_directory(config_, 'public')
+        tk.add_resource('fanstatic', 'ckanext-zippreview')
+
+    # ITemplateHelpers
 
     def get_helpers(self):
-        return {'zip_tree': zip_tree}
+        return get_helpers()
+
+    # IResourceView
 
     def info(self):
-        return {'name': 'zip_view', 'title': 'ZIP Viewer', 'default_title': 'ZIP Viewer',
-                'icon': 'folder-open'}
+        return {
+            'name': 'zip_view',
+            'title': 'ZIP Viewer',
+            'default_title': 'ZIP Viewer',
+            'icon': 'folder-open'
+        }
 
     def can_view(self, data_dict):
-        resource = data_dict['resource']
-        format_lower = resource.get('format','').lower()
-        if (format_lower == ''):
-            format_lower = os.path.splitext(resource['url'])[1][1:].lower()
-        # print format_lower
-        if format_lower in ['zip', 'application/zip', 'application/x-zip-compressed']:
-            return True
-        return False
+        return utils.is_resource_supported(data_dict['resource'])
 
     def view_template(self, context, data_dict):
         return 'zip.html'
